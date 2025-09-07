@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>Eylüşümün Doğum Günü Sitesi</title>
+  <style>
+    :root{
+      --bg:#a2d5f2;
+      --accent:#ff6b6b;
+    }
+    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;}
+    body{
+      background: linear-gradient(135deg,#ffecd2 0%,#98f4ee 100%);
+      overflow:hidden;color:#111;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .hud{
+      position:fixed;right:12px;top:12px;z-index:60;
+      background:rgba(255,255,255,0.8);backdrop-filter:blur(6px);
+      padding:8px 12px;border-radius:12px;font-weight:700;display:flex;gap:8px;align-items:center;box-shadow:0 6px 18px rgba(0,0,0,0.2);
+      color:#111;
+    }
+    .hud .popped{font-size:18px}
+    .hud .total{opacity:0.7;font-size:12px}
+
+    .play-area{position:fixed;inset:0;pointer-events:auto;overflow:hidden}
+    .balloon{
+      position:absolute;bottom:-140px;width:64px;height:84px;border-radius:50% 50% 45% 45%;
+      display:flex;align-items:center;justify-content:center;transform-origin:center bottom;z-index:30;touch-action:none;
+      box-shadow:inset -6px -8px 0 rgba(255,255,255,0.12), 0 8px 18px rgba(0,0,0,0.25);
+    }
+    .balloon::after{content:'';position:absolute;left:50%;transform:translateX(-50%);bottom:-18px;width:2px;height:36px;background:linear-gradient(#bfbfbf,#777);border-radius:2px}
+    .balloon .shine{position:absolute;left:14%;top:10%;width:22%;height:30%;border-radius:50%;background:rgba(255,255,255,0.25);filter:blur(2px);}
+
+    .confetti-piece{
+      position:absolute;width:8px;height:12px;opacity:0;pointer-events:none;z-index:80;border-radius:2px;transform-origin:center;will-change:transform,opacity
+    }
+
+    .gift-wrap{position:fixed;inset:0;display:grid;place-items:center;z-index:70;pointer-events:none}
+    .gift{
+      width:160px;height:160px;background:linear-gradient(180deg,#ffc107,#ff8f00);border-radius:10px;display:grid;place-items:center;cursor:pointer;box-shadow:0 18px 40px rgba(0,0,0,0.5);transform:translateY(40px) scale(0.9);opacity:0;transition:all 320ms cubic-bezier(.2,.9,.3,1);pointer-events:auto;position:relative;
+    }
+    .gift.show{opacity:1;transform:translateY(0) scale(1)}
+    .gift::before{content:'';position:absolute;left:50%;top:12%;transform:translateX(-50%);width:60%;height:18%;background:linear-gradient(90deg,#fff6,#fff0);border-radius:6px}
+    .gift .ribbon{position:absolute;width:18px;height:120%;background:#c62828;left:50%;transform:translateX(-50%);border-radius:4px}
+    .gift .bow{position:absolute;top:6px;left:50%;transform:translateX(-50%);width:60px;height:28px;border-radius:20px;background:#b71c1c;box-shadow:inset 0 -6px 0 rgba(0,0,0,0.15)}
+    .gift .label{position:relative;z-index:4;font-weight:800;color:#210b03}
+
+    .reveal-overlay{position:fixed;inset:0;background:linear-gradient(0deg,rgba(0,0,0,0.4),rgba(0,0,0,0.1));display:flex;align-items:center;justify-content:center;z-index:90;opacity:0;pointer-events:none;transition:opacity 260ms ease}
+    .reveal-overlay.show{opacity:1;pointer-events:auto}
+    .reveal-card{width:min(92vw,920px);height:min(72vh,640px);background:#fff;border-radius:12px;overflow:hidden;position:relative;box-shadow:0 24px 60px rgba(0,0,0,0.3);display:flex;align-items:flex-end}
+    .reveal-card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+    .reveal-message{position:relative;padding:20px;color:#ffffff;font-size:clamp(20px,3.6vw,36px);font-weight:800;text-shadow:0 6px 18px rgba(255,255,255,0.7);z-index:4}
+    .close-btn{position:absolute;right:12px;top:12px;background:rgba(255,255,255,0.9);color:#111;padding:8px 10px;border-radius:10px;cursor:pointer;z-index:10}
+
+    @media (max-width:420px){
+      .balloon{width:52px;height:70px}
+      .gift{width:140px;height:140px}
+    }
+  </style>
+</head>
+<body>
+
+  <div class="play-area" id="playArea" aria-hidden="false"></div>
+
+  <div class="hud" aria-live="polite">
+    <div class="popped" id="poppedCount">0</div>
+    <div class="total">/ 22 🎈</div>
+  </div>
+
+  <div class="gift-wrap">
+    <div class="gift" id="gift" role="button" aria-hidden="true" tabindex="0" aria-label="Gift - click to open">
+      <div class="ribbon"></div>
+      <div class="bow"></div>
+      <div class="label">Hediyeyi Kaptın</div>
+    </div>
+  </div>
+
+  <div class="reveal-overlay" id="reveal">
+    <div class="reveal-card" role="dialog" aria-modal="true" aria-label="Birthday photo and message">
+      <img id="revealImg" alt="Birthday photo placeholder" src="resim.jpg" />
+      <div class="reveal-message" id="revealMsg">İyi ki doğdun Eylüşüm 🎉🎂 Seni çok seviyorum ❤️</div>
+    </div>
+  </div>
+
+  <audio id="bgm" src="placeholder-music.mp3" preload="auto"></audio>
+  <audio id="popSound" src="balloon-pop.mp3" preload="auto"></audio>
+
+  <div id="confettiLayer" style="position:fixed;inset:0;pointer-events:none;z-index:85"></div>
+
+  <script>
+    (function(){
+      const playArea = document.getElementById('playArea');
+      const poppedCountEl = document.getElementById('poppedCount');
+      const gift = document.getElementById('gift');
+      const reveal = document.getElementById('reveal');
+      const revealImg = document.getElementById('revealImg');
+      const revealMsg = document.getElementById('revealMsg');
+      const closeReveal = document.getElementById('closeReveal');
+      const confettiLayer = document.getElementById('confettiLayer');
+      const bgm = document.getElementById('bgm');
+
+      let popped = 0;
+      const goal = 22;
+      let balloonId = 0;
+      let spawnInterval = 600; // more frequent
+      let maxConcurrent = 20; // allow more balloons
+      let activeBalloons = new Set();
+      const colors = ['#ff6b6b','#ffb86b','#ffd86b','#8be9fd','#a29bfe','#ff89ad','#7efc82'];
+      function rand(min,max){return Math.random()*(max-min)+min}
+
+      function createBalloon(){
+        if(activeBalloons.size >= maxConcurrent) return;
+        const el = document.createElement('button');
+        el.className='balloon';
+        el.type='button';
+        el.setAttribute('aria-label','Balloon');
+        const id = 'b'+(balloonId++);
+        el.dataset.id = id;
+        activeBalloons.add(id);
+
+        const scale = rand(0.9,1.3);
+        el.style.width = (64*scale)+'px';
+        el.style.height = (84*scale)+'px';
+        const left = rand(15,85); // ensure balloons aren't stuck at edges
+        el.style.left = left + 'vw';
+        const color = colors[Math.floor(rand(0,colors.length))];
+        el.style.background = `radial-gradient(circle at 30% 25%, rgba(255,255,255,0.35), rgba(255,255,255,0.05) 10%), ${color}`;
+        const shine = document.createElement('div'); shine.className='shine'; el.appendChild(shine);
+
+        const duration = rand(6,10);
+        const drift = rand(-8,8);
+        const animName = `float${id}`;
+        const keyframes = `@keyframes ${animName} { from { transform: translateY(0) translateX(0) } to { transform: translateY(-${window.innerHeight + 220}px) translateX(${drift}vw) } }`;
+        const styleTag = document.createElement('style'); styleTag.textContent = keyframes; document.head.appendChild(styleTag);
+        el.style.animation = `${animName} ${duration}s linear forwards`;
+
+        const pop = (e)=>{
+          e.preventDefault(); e.stopPropagation();
+          if(el.dataset.popped) return;
+          el.dataset.popped = '1';
+          activeBalloons.delete(id);
+          const rect = el.getBoundingClientRect();
+          const cx = rect.left + rect.width/2; const cy = rect.top + rect.height/2;
+          el.style.opacity = 0; el.style.transform += ' scale(0.6)';
+          setTimeout(()=>el.remove(),220);
+          triggerConfetti(cx,cy);
+            // Balon sesi
+          popSound.currentTime = 0;
+          popSound.play().catch(()=>{});
+          popped += 1; updateHUD();
+        };
+
+        el.addEventListener('click',pop);
+        el.addEventListener('touchstart',pop,{passive:false});
+        el.addEventListener('animationend', ()=>{ if(!el.dataset.popped){ activeBalloons.delete(id); el.remove(); } });
+        playArea.appendChild(el);
+      }
+
+      let spawnTimer = setInterval(createBalloon, spawnInterval);
+
+      function updateHUD(){
+        poppedCountEl.textContent = popped;
+        if(popped >= goal){ showGift(); }
+      }
+
+      function showGift(){ gift.classList.add('show'); gift.setAttribute('aria-hidden','false'); }
+
+      function triggerConfetti(x,y){
+        const count = 30;
+        for(let i=0;i<count;i++){
+          const piece = document.createElement('div');
+          piece.className='confetti-piece';
+          piece.style.left = (x - 4) + 'px';
+          piece.style.top = (y - 6) + 'px';
+          piece.style.background = colors[Math.floor(rand(0,colors.length))];
+          piece.style.transform = `translate3d(0,0,0) rotate(${rand(0,360)}deg)`;
+          confettiLayer.appendChild(piece);
+          const angle = rand(-Math.PI, Math.PI);
+          const speed = rand(80,260);
+          const gravity = rand(280,560);
+          const lifetime = rand(0.9,1.8);
+          const start = performance.now();
+          function frame(now){
+            const t = (now - start)/1000;
+            if(t>lifetime){ piece.remove(); return }
+            const dx = Math.cos(angle)*speed*t;
+            const dy = -Math.sin(angle)*speed*t + 0.5*gravity*t*t;
+            const rot = 360 * t / lifetime;
+            const opacity = Math.max(0,1 - (t/lifetime));
+            piece.style.transform = `translate(${dx}px,${dy}px) rotate(${rot}deg)`;
+            piece.style.opacity = opacity;
+            requestAnimationFrame(frame);
+          }
+          requestAnimationFrame(frame);
+        }
+      }
+
+      function openGift(e){
+        e.preventDefault();
+        if(popped < goal) return;
+        reveal.classList.add('show');
+        bgm.play().catch(()=>{});
+      }
+
+      gift.addEventListener('click', openGift);
+      gift.addEventListener('touchstart', openGift,{passive:false});
+      gift.addEventListener('keydown', (e)=>{ if(e.key==='Enter'||e.key===' ') openGift(e); });
+      closeReveal.addEventListener('click', ()=>{ reveal.classList.remove('show'); bgm.pause(); bgm.currentTime=0; });
+
+      gift.setAttribute('aria-hidden','true');
+
+      for(let i=0;i<6;i++){ setTimeout(createBalloon,i*250); }
+    })();
+  </script>
+</body>
+</html>
